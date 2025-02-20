@@ -42,7 +42,7 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         // Validação das credenciais (primeiro fator)
-        $credentials = $request->validate([
+        $credentials = $request->validate([ 
             'email'    => 'required|email',
             'password' => 'required'
         ]);
