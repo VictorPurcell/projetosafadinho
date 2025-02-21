@@ -10,7 +10,7 @@ class EnsureDuoAuthenticated
     public function handle(Request $request, Closure $next)
     {
         if (! session()->has('duo_authenticated') || ! session('duo_authenticated')) {
-            return redirect()->route('duo.auth');
+            return redirect()->route('login');
         }
         return $next($request);
     }
