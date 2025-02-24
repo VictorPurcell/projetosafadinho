@@ -1,3 +1,10 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Ajusta os ícones dentro dos cards */
+.card-icon {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+}
+

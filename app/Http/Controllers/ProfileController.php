@@ -8,6 +8,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\Validator;
+use App\Rules\Cnpj;
+use App\Rules\Cpf;
 
 class ProfileController extends Controller
 {
@@ -24,18 +27,50 @@ class ProfileController extends Controller
     /**
      * Update the user's profile information.
      */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
-    {
-        $request->user()->fill($request->validated());
+    public function update(ProfileUpdateRequest $request)
+{
+    // Validação básica do form request
+    $validated = $request->validated();
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
-        }
+    // Validação condicional do documento
+    $documentRule = $request->document_type === 'CNPJ' 
+        ? new Cnpj 
+        : new Cpf;
 
-        $request->user()->save();
+    $validator = Validator::make($request->all(), [
+        'document_number' => ['required', $documentRule]
+    ]);
 
-        return Redirect::route('profile.edit')->with('status', 'profile-updated');
+    if ($validator->fails()) {
+        return redirect()
+            ->route('profile.edit')
+            ->withErrors($validator)
+            ->withInput();
     }
+
+    // Formatação dos dados
+    $mergedData = array_merge($validated, [
+        'document_number' => preg_replace('/[^0-9]/', '', $request->document_number),
+        'phone' => preg_replace('/[^0-9]/', '', $request->phone),
+        'company_name' => $request->company_name,
+        'document_type' => $request->document_type
+    ]);
+
+    // Atualização do usuário
+    $user = $request->user();
+    $user->fill($mergedData);
+
+    // Reset de verificação de e-mail se necessário
+    if ($user->isDirty('email')) {
+        $user->email_verified_at = null;
+    }
+
+    $user->save();
+
+    return redirect()
+        ->route('profile.edit')
+        ->with('status', 'profile-updated');
+}
 
     /**
      * Delete the user's account.

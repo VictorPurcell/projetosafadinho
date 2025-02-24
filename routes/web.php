@@ -3,7 +3,12 @@
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\DuoController;
+use App\Http\Controllers\NotasController;
+use App\Http\Controllers\TitulosController;
+use App\Http\Controllers\RelatoriosController;
+use App\Http\Controllers\ConfiguracoesController;
+use App\Http\Controllers\ClientesController;
+
 
 
 /*
@@ -24,6 +29,7 @@ Route::post('/login', [AuthController::class, 'handleLogin'])->name('login.submi
 Route::get('/duo-callback', [AuthController::class, 'handleDuoCallback'])->name('duo.callback');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+
 Route::middleware(['auth', 'duo'])->group(function () {
     Route::get('/dashboard', function () {
         return view('dashboard');
@@ -33,6 +39,18 @@ Route::middleware(['auth', 'duo'])->group(function () {
         return view('welcome')
         ->name('welcome');
     });
+
+    
+    Route::get('/notas/pdf', [NotasController::class, 'showPdf'])->name('notas.pdf-view');
+    Route::get('/notas/emitir', [NotasController::class, 'emitir'])->name('notas.emitir');
+    Route::get('/notas/integraçãofdc', [NotasController::class, 'fdc'])->name('integracao.fdc');
+
+
+    Route::get('/notas', [NotasController::class, 'index'])->name('notas.index');
+    Route::get('/titulos', [TitulosController::class, 'index'])->name('titulos.index');
+    Route::get('/relatorios', [RelatoriosController::class, 'index'])->name('relatorios.index');
+    Route::get('/configuracoes', [ConfiguracoesController::class, 'index'])->name('configuracoes.index');
+    Route::get('/clientes', [ClientesController::class, 'index'])->name('clientes.index');
 });
 
 

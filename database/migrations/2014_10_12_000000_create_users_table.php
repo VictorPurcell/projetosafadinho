@@ -20,6 +20,10 @@ return new class extends Migration
             $table->string('password');
             $table->rememberToken();
             $table->timestamps();
+            $table->string('company_name')->nullable();
+            $table->enum('document_type', ['CPF', 'CNPJ']);
+            $table->string('document_number', 20);
+            $table->string('phone', 20);
         });
     }
 

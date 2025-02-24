@@ -79,7 +79,7 @@ class AuthController extends Controller
         // Gera um state único e armazena na sessão.
         $state = $this->duoClient->generateState();
         Session::put('duo_state', $state);
-        Session::put('duo_username', $username);
+        Session::put('username', $username);
 
         // Redireciona para a URL do Duo para autenticação do segundo fator.
         return redirect()->away(
@@ -100,7 +100,7 @@ class AuthController extends Controller
 
         $state     = $request->input('state');
         $duoCode   = $request->input('duo_code');
-        $username  = Session::get('duo_username');
+        $username  = Session::get('username');
         $savedState = Session::get('duo_state');
 
         if (empty($savedState) || empty($username)) {
@@ -133,6 +133,23 @@ class AuthController extends Controller
 
     return redirect()->route($route)->withErrors(['duo' => $errorMessage]);
 }
+
+
+public function testTokenExchangeBadTokenType(Request $request): void
+    {
+        $state     = $request->input('state');
+        $duoCode   = $request->input('duo_code');
+        $username  = Session::get('username');
+        $savedState = Session::get('duo_state');
+
+        $result_good = $this->createTokenResult();
+        $result = str_replace('Bearer', 'BadTokenType', $result_good);
+        $this->expectException(DuoException::class);
+        $this->expectExceptionMessage(Client::MALFORMED_RESPONSE);
+        $client = $this->createClientMockHttp($result);
+        $client->exchangeAuthorizationCodeFor2FAResult($this->$duoCode, $this->$username);
+
+    }
 
     /**
      * Realiza o logout e limpa a sessão.
