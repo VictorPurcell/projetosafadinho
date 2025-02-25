@@ -31,14 +31,10 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 
 Route::middleware(['auth', 'duo'])->group(function () {
+
     Route::get('/dashboard', function () {
         return view('dashboard');
     })->name('dashboard');
-
-    Route::get('/', function () {
-        return view('welcome')
-        ->name('welcome');
-    });
 
     
     Route::get('/notas/pdf', [NotasController::class, 'showPdf'])->name('notas.pdf-view');
@@ -51,15 +47,10 @@ Route::middleware(['auth', 'duo'])->group(function () {
     Route::get('/relatorios', [RelatoriosController::class, 'index'])->name('relatorios.index');
     Route::get('/configuracoes', [ConfiguracoesController::class, 'index'])->name('configuracoes.index');
     Route::get('/clientes', [ClientesController::class, 'index'])->name('clientes.index');
-});
 
-
-// Exemplo de rota protegida (só acessível se o usuário estiver autenticado e tiver passado no 2FA)
-Route::middleware(['auth'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
-
 
 require __DIR__.'/auth.php';

@@ -43,7 +43,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16 items-center">
             <!-- Logo -->
-            <a href="/" class="text-white text-xl font-bold flex items-center hover:text-gray-200 transition-colors">
+            <a href="/dashboard" class="text-white text-xl font-bold flex items-center hover:text-gray-200 transition-colors">
                 <i class="fas fa-file-invoice-dollar mr-2"></i>
                 TFG Fiscal
             </a>

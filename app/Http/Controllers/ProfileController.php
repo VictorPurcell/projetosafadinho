@@ -90,6 +90,6 @@ class ProfileController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect(route('login1'));
+        return redirect(route('login'));
     }
 }

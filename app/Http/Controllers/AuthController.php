@@ -26,75 +26,91 @@ class AuthController extends Controller
                 true,
                 config('duo.http_proxy') ?? null
             );
+            Log::info("Cliente Duo configurado com sucesso.");
         } catch (DuoException $e) {
-            throw new \RuntimeException("Erro de configuração do Duo: " . $e->getMessage());
+            Log::error("Erro de configuração do Duo: " . $e->getMessage());
+            throw new \RuntimeException("Erro de configuração do Duo: " . $e->getMessage(), $e->getCode(), $e);
         }
 
-        $this->duoFailmode = strtoupper(config('duo.failmode'));
+        $this->duoFailmode = strtoupper(config('duo.failmode', 'CLOSED'));
+        Log::info("Failmode configurado: " . $this->duoFailmode);
     }
 
-    /**
-     * Exibe a tela de login.
-     */
-    public function showLogin()
-    {
-        return view('auth.login', ['message' => 'Por favor, faça login']);
-    }
+        /**
+         * Exibe a tela de login.
+         */
+        public function showLogin()
+        {
+            Log::info("Exibindo tela de login.");
+            return view('auth.login', ['message' => 'Por favor, faça login']);
+        }
 
-    /**
-     * Trata o login do primeiro fator e inicia o fluxo 2FA com o Duo.
-     */
-    public function handleLogin(Request $request)
-    {
-        // Validação básica dos campos de login.
+        /**
+         * Trata o login do primeiro fator e inicia o fluxo 2FA com o Duo.
+         */
+        public function handleLogin(Request $request)
+        {
+        Log::info("Iniciando processo de login.");
         $credentials = $request->validate([
-            'username' => 'required',
-            'password' => 'required'
-        ]);
+            'username' => ['required', 'string', 'max:255'],
+            'password' => ['required', 'string']
+        ]);      
 
         // Tenta autenticar o usuário com Laravel.
         if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+            Log::error("Falha na autenticação do usuário: " . $request->input('username'));
             return redirect()->back()->withErrors(['username' => __('auth.failed')]);
         }
+        Log::info("Usuário autenticado via Laravel: " . Auth::user()->username);
 
-        // Limpa qualquer flag de 2FA anterior.
+        $request->session()->regenerate();
+
         Session::forget('duo_authenticated');
 
-        // Verifica se o serviço Duo está disponível.
         try {
             $this->duoClient->healthCheck();
+            Log::info("HealthCheck do Duo realizado com sucesso.");
         } catch (DuoException $e) {
-            Log::error($e->getMessage());
-            if ($this->duoFailmode === "OPEN") {
+            Log::error("HealthCheck Duo falhou: " . $e->getMessage());
+        
+            // Se o failmode for "CLOSED", permitir o login sem 2FA
+            if ($this->duoFailmode === "CLOSED") {
+                Log::warning("Duo indisponível e failmode está em CLOSED. Permitindo login sem 2FA.");
                 Session::put('duo_authenticated', true);
-                return redirect()->route('login');
+                return redirect()->route('dashboard');
             }
-            return $this->handleError("2FA indisponível. Verifique a configuração do Duo.");
+            
+            // Se o failmode for "OPEN", seguir com o fluxo normal e mostrar erro
+            return $this->handleError("2FA indisponível e o sistema está configurado para fail OPEN. Não é possível fazer login.");
         }
 
+        // Se o failmode for OPEN, permite o login sem 2FA.
+        // Session::put('duo_authenticated', true);
+        // return redirect()->route('dashboard');
+        
         // Obtenha o usuário autenticado.
         $user = Auth::user();
-        $username = $user->username; // Usa username se existir, caso contrário email.
+        $username = $user->username; // Usa username se existir, caso contrário, ajuste para email se necessário.
 
-        // Gera um state único e armazena na sessão.
         $state = $this->duoClient->generateState();
         Session::put('duo_state', $state);
         Session::put('username', $username);
+        Log::info("State gerado para o Duo e armazenado na sessão para o usuário: " . $username);
 
-        // Redireciona para a URL do Duo para autenticação do segundo fator.
-        return redirect()->away(
-            $this->duoClient->createAuthUrl($username, $state)
-        );
-    }
+        $authUrl = $this->duoClient->createAuthUrl($username, $state);
+        Log::info("Redirecionando usuário para o Duo para autenticação 2FA: " . $authUrl);
+        return redirect()->away($authUrl);
+        }
 
-    /**
-     * Processa o callback do Duo, validando o state e o código, e finaliza a autenticação 2FA.
-     */
-    public function handleDuoCallback(Request $request)
-    {
+        /**
+         * Processa o callback do Duo, validando o state e o código, e finaliza a autenticação 2FA.
+         */
+        public function handleDuoCallback(Request $request)
+        {
+        Log::info("Processando callback do Duo.");
         if ($request->has('error')) {
             $errorMsg = $request->input('error') . ": " . $request->input('error_description');
-            Log::error($errorMsg);
+            Log::error("Erro no callback do Duo: " . $errorMsg);
             return redirect()->route('auth.login')->withErrors(['duo' => "Erro no Duo: " . $errorMsg]);
         }
 
@@ -103,75 +119,60 @@ class AuthController extends Controller
         $username  = Session::get('username');
         $savedState = Session::get('duo_state');
 
-        if (empty($savedState) || empty($username)) {
-            return redirect()->route('login')->withErrors(['message' => 'Sessão Duo expirada. Faça login novamente.']);
+        if (!Session::has('duo_state') || !Session::has('username')) {
+            Log::error("Sessão Duo expirada.");
+            return redirect()->route('login')->withErrors(['duo' => 'Sessão Duo expirada. Faça login novamente.']);
         }
-
+        
         if ($state !== $savedState) {
+            Session::forget('duo_state'); // Evita reutilização
+            Log::error("Estado retornado pelo Duo não confere para o usuário: " . $username);
             return redirect()->route('login')->withErrors(['duo' => 'O estado retornado pelo Duo não confere com o salvo.']);
         }
 
         try {
             $decodedToken = $this->duoClient->exchangeAuthorizationCodeFor2FAResult($duoCode, $username);
+            Log::info("Token 2FA obtido com sucesso para o usuário: " . $username);
         } catch (DuoException $e) {
-            Log::error($e->getMessage());
-            return redirect()->route('auth.login')->withErrors(['duo' => 'Erro ao decodificar a resposta do Duo. Verifique o relógio do dispositivo.']);
+            Log::error("Erro ao trocar o código de autorização para o usuário " . $username . ": " . $e->getMessage());
+            return redirect()->route('login')->withErrors(['duo' => 'Erro ao decodificar a resposta do Duo. Verifique o relógio do dispositivo.']);
+        }
+
+        if (!isset($decodedToken['exp'])) {
+            Log::error("Token Duo inválido: chave 'exp' não encontrada para o usuário: " . $username);
+            return redirect()->route('login')->withErrors(['duo' => 'Token Duo inválido.']);
+        }
+
+        if (time() > $decodedToken['exp']) {
+            Log::error("Token Duo expirado para o usuário: " . $username);
+            return redirect()->route('login')->withErrors(['duo' => 'Token Duo expirado. Por favor, tente novamente.']);
         }
 
         Session::put('duo_authenticated', true);
+        Log::info("2FA concluído com sucesso para o usuário: " . $username);
 
         return redirect()->route('dashboard');
-    }
-    /**
-    * Limpa a sessão e redireciona para a página de login com uma mensagem de erro.
-    */
-    private function handleError(string $errorMessage, string $route = 'login'): RedirectResponse
-{
-    Auth::logout(); // Encerra a sessão do usuário
-    Session::flush(); // Limpa todos os dados da sessão
-    Log::error($errorMessage); // Registra o erro no log
+        }
 
-    return redirect()->route($route)->withErrors(['duo' => $errorMessage]);
-}
-
-
-public function testTokenExchangeBadTokenType(Request $request): void
-    {
-        $state     = $request->input('state');
-        $duoCode   = $request->input('duo_code');
-        $username  = Session::get('username');
-        $savedState = Session::get('duo_state');
-
-        $result_good = $this->createTokenResult();
-        $result = str_replace('Bearer', 'BadTokenType', $result_good);
-        $this->expectException(DuoException::class);
-        $this->expectExceptionMessage(Client::MALFORMED_RESPONSE);
-        $client = $this->createClientMockHttp($result);
-        $client->exchangeAuthorizationCodeFor2FAResult($this->$duoCode, $this->$username);
-
-    }
-
-    /**
-     * Realiza o logout e limpa a sessão.
-     */
-    public function logout(Request $request)
-    {
+        /**
+         * Limpa a sessão e redireciona para a página de login com uma mensagem de erro.
+         */
+        private function handleError(string $errorMessage, string $route = 'login'): RedirectResponse
+        {
+        Auth::logout(); // Encerra a sessão do usuário
+        Session::flush(); // Limpa todos os dados da sessão
+        Log::error("Erro durante autenticação: " . $errorMessage);
+        return redirect()->route($route)->withErrors(['duo' => $errorMessage]);
+        }
+        /**
+         * Realiza o logout e limpa a sessão.
+         */
+        public function logout(Request $request)
+        {
         Auth::logout();
-        Session::flush();
-        return redirect()->route('login')->with('message', 'Logout realizado com sucesso!');
-    }
-
-    /**
-     * Destroy an authenticated session.
-     */
-    public function destroy(Request $request)
-    {
-        Auth::guard('web')->logout();
-
         $request->session()->invalidate();
-
         $request->session()->regenerateToken();
-
-        return redirect(route('login'));
-    }
+        Log::info("Logout realizado com sucesso.");
+        return redirect()->route('login')->with('message', 'Logout realizado com sucesso!');
+        }
 }

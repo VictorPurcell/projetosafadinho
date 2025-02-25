@@ -16,7 +16,7 @@
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             
             <!-- Grid de Atalhos com Efeitos Melhorados -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mb-20">
                 @foreach([
                     ['route' => 'notas.index', 'icon' => 'file-invoice', 'color' => 'primary', 'title' => 'Notas Fiscais', 'count' => 567],
                     ['route' => 'titulos.index', 'icon' => 'hand-holding-usd', 'color' => 'secondary', 'title' => 'Títulos', 'count' => 'R$ 245K'],
