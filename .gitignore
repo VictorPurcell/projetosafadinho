@@ -17,7 +17,6 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
-.env.example
 .env.local
 .env.development
 .env.test

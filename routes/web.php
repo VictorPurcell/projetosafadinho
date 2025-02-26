@@ -8,8 +8,7 @@ use App\Http\Controllers\TitulosController;
 use App\Http\Controllers\RelatoriosController;
 use App\Http\Controllers\ConfiguracoesController;
 use App\Http\Controllers\ClientesController;
-
-
+use App\Http\Controllers\DuoLoginController;
 
 /*
 |--------------------------------------------------------------------------
@@ -24,7 +23,7 @@ use App\Http\Controllers\ClientesController;
 
 
 
-Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+Route::get('/login', [DuoLoginController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'handleLogin'])->name('login.submit');
 Route::get('/duo-callback', [AuthController::class, 'handleDuoCallback'])->name('duo.callback');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
