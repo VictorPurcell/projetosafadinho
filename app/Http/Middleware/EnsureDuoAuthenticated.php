@@ -4,14 +4,16 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Session;
 
 class EnsureDuoAuthenticated
 {
     public function handle(Request $request, Closure $next)
     {
-        if (! session()->has('duo_authenticated') || ! session('duo_authenticated')) {
-            return redirect()->route('login');
+        if (!Session::get('duo_authenticated', false)) {
+            return redirect()->route('login')->withErrors(['duo' => 'Autenticação 2FA obrigatória.']);
         }
+
         return $next($request);
     }
 }
